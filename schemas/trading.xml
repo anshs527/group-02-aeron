@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+    package="hft.sbe" id="421" version="0" semanticVersion="0.1.0"
+    description="IE421 foundation; all integers little endian" byteOrder="littleEndian">
+  <types>
+    <composite name="messageHeader" description="SBE standard 8-byte message header">
+      <type name="blockLength" primitiveType="uint16"/>
+      <type name="templateId" primitiveType="uint16"/>
+      <type name="schemaId" primitiveType="uint16"/>
+      <type name="version" primitiveType="uint16"/>
+    </composite>
+    <type name="Identifier64" primitiveType="uint64" minValue="1" maxValue="18446744073709551614"/>
+    <type name="Identifier32" primitiveType="uint32" minValue="1" maxValue="4294967294"/>
+    <type name="PriceTicks" primitiveType="int64" minValue="1" maxValue="9223372036854775807"/>
+    <type name="Quantity" primitiveType="uint64" minValue="1" maxValue="18446744073709551614"/>
+    <enum name="Side" encodingType="uint8">
+      <validValue name="Buy">1</validValue>
+      <validValue name="Sell">2</validValue>
+    </enum>
+  </types>
+  <sbe:message name="Ping" id="1" description="One outstanding request per smoke-test session">
+    <field name="correlationId" id="1" type="Identifier64"/>
+  </sbe:message>
+  <sbe:message name="Pong" id="2" description="Echo the request correlation ID">
+    <field name="correlationId" id="1" type="Identifier64"/>
+  </sbe:message>
+  <sbe:message name="NewOrder" id="3" description="Protocol example, not yet routed to an exchange">
+    <field name="clientId" id="1" type="Identifier32"/>
+    <field name="clientOrderId" id="2" type="Identifier64"/>
+    <field name="symbolId" id="3" type="Identifier32"/>
+    <field name="side" id="4" type="Side"/>
+    <field name="priceTicks" id="5" type="PriceTicks"/>
+    <field name="quantity" id="6" type="Quantity"/>
+  </sbe:message>
+</sbe:messageSchema>

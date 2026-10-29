@@ -1,0 +1,51 @@
+name: C++ correctness
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [debug, release, asan]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install explicit Linux prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential git ninja-build openjdk-17-jre-headless clang-format-18 curl ca-certificates
+          bash scripts/local_cmake.sh
+          echo "$GITHUB_WORKSPACE/.tools/cmake-3.31.6-linux-x86_64/bin" >> "$GITHUB_PATH"
+      - name: Check handwritten formatting
+        run: bash scripts/format.sh --check
+      - name: Configure
+        run: |
+          mkdir -p build/${{ matrix.preset }}/logs
+          set -o pipefail
+          cmake --preset ${{ matrix.preset }} 2>&1 | tee build/${{ matrix.preset }}/logs/configure.log
+      - name: Build and generate SBE codecs
+        run: |
+          set -o pipefail
+          cmake --build --preset ${{ matrix.preset }} 2>&1 | tee build/${{ matrix.preset }}/logs/build.log
+      - name: Unit and generated codec tests
+        run: ctest --preset ${{ matrix.preset }} -L unit
+      - name: Bounded native-driver IPC tests
+        run: timeout --kill-after=5s 180s ctest --preset ${{ matrix.preset }} -L integration
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: failure-${{ matrix.preset }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            build/${{ matrix.preset }}/logs/
+            build/${{ matrix.preset }}/Testing/Temporary/
+            build/${{ matrix.preset }}/CMakeFiles/CMakeConfigureLog.yaml
+            build/${{ matrix.preset }}/dependency-manifest.txt
