@@ -57,7 +57,7 @@ void Endpoint::send(std::span<char> bytes, Deadline deadline) {
         throw std::invalid_argument("tool publication length outside supported frame size");
     }
     aeron::concurrent::AtomicBuffer buffer(reinterpret_cast<std::uint8_t*>(bytes.data()),
-                                           static_cast<aeron::util::index_t>(bytes.size()));
+                                           bytes.size());
     offer_until(
         [&] {
             check();

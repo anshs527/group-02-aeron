@@ -76,8 +76,8 @@ TEST(Publication, DeadlinePreventsOfferingAndPersistentBackpressureTimesOut) {
 }
 TEST(Statistics, ComputesBasicStatisticsWithoutIntegerSumOverflow) {
     hft::RttStatistics stats;
-    EXPECT_THROW(stats.mean(), std::logic_error);
-    EXPECT_THROW(stats.min(), std::logic_error);
+    EXPECT_THROW(static_cast<void>(stats.mean()), std::logic_error);
+    EXPECT_THROW(static_cast<void>(stats.min()), std::logic_error);
     stats.add(10);
     stats.add(20);
     stats.add(60);
