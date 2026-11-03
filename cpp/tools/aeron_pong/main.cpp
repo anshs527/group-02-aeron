@@ -26,7 +26,8 @@ int main(int argc, char** argv) {
         std::cout << "PONG OK count=" << options.total() << '\n';
         return 0;
     } catch (const std::exception& error) {
-        std::cerr << "PONG FAILED: " << error.what() << "\nUsage: aeron_pong " << hft::usage << '\n';
+        std::cerr << "PONG FAILED: " << error.what() << "\nUsage: aeron_pong " << hft::usage
+                  << '\n';
         return 1;
     }
 }

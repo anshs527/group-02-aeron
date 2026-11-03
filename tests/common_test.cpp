@@ -21,7 +21,8 @@ hft::Options parse(std::vector<std::string> args) {
 TEST(Options, RequiresExplicitAbsoluteDirectory) {
     EXPECT_THROW(parse({"ping"}), std::invalid_argument);
     EXPECT_THROW(parse({"ping", "--aeron-dir", "relative"}), std::invalid_argument);
-    const auto opts = parse({"ping", "--aeron-dir", "/tmp/test", "--warmup", "0", "--messages", "3"});
+    const auto opts =
+        parse({"ping", "--aeron-dir", "/tmp/test", "--warmup", "0", "--messages", "3"});
     EXPECT_EQ(opts.total(), 3U);
     EXPECT_NE(opts.request_stream, opts.response_stream);
 }
@@ -49,20 +50,29 @@ TEST(Publication, RetriesTemporaryStatusesUntilAccepted) {
 TEST(Publication, FailsImmediatelyOnFatalOrUnknownStatus) {
     for (const std::int64_t status : {-4, -5, -6, -99}) {
         int attempts = 0;
-        EXPECT_THROW(hft::offer_until([&] { ++attempts; return status; },
-                                      hft::Clock::now() + std::chrono::seconds(1)),
+        EXPECT_THROW(hft::offer_until(
+                         [&] {
+                             ++attempts;
+                             return status;
+                         },
+                         hft::Clock::now() + std::chrono::seconds(1)),
                      std::runtime_error);
         EXPECT_EQ(attempts, 1);
     }
 }
 TEST(Publication, DeadlinePreventsOfferingAndPersistentBackpressureTimesOut) {
     bool called = false;
-    EXPECT_THROW(hft::offer_until([&] { called = true; return 64; }, hft::Clock::now()),
+    EXPECT_THROW(hft::offer_until(
+                     [&] {
+                         called = true;
+                         return 64;
+                     },
+                     hft::Clock::now()),
                  std::runtime_error);
     EXPECT_FALSE(called);
-    EXPECT_THROW(hft::offer_until([] { return -2; },
-                                  hft::Clock::now() + std::chrono::milliseconds(1)),
-                 std::runtime_error);
+    EXPECT_THROW(
+        hft::offer_until([] { return -2; }, hft::Clock::now() + std::chrono::milliseconds(1)),
+        std::runtime_error);
 }
 TEST(Statistics, ComputesBasicStatisticsWithoutIntegerSumOverflow) {
     hft::RttStatistics stats;

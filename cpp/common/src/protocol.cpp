@@ -27,8 +27,8 @@ void validate(const NewOrder& order) {
     valid_id(order.client_order_id);
     valid_id(order.quantity);
     if (order.client_id == std::numeric_limits<std::uint32_t>::max() ||
-        order.symbol_id == std::numeric_limits<std::uint32_t>::max() ||
-        order.price_ticks <= 0 || (order.side != Side::buy && order.side != Side::sell)) {
+        order.symbol_id == std::numeric_limits<std::uint32_t>::max() || order.price_ticks <= 0 ||
+        (order.side != Side::buy && order.side != Side::sell)) {
         throw std::invalid_argument("invalid NewOrder field");
     }
 }
@@ -99,15 +99,16 @@ NewOrder decode_order(std::span<char> bytes) {
     if (side != sbe::Side::Buy && side != sbe::Side::Sell) {
         throw std::invalid_argument("invalid NewOrder side");
     }
-    NewOrder order{message.clientId(), message.clientOrderId(), message.symbolId(),
-                   side == sbe::Side::Buy ? Side::buy : Side::sell,
+    NewOrder order{message.clientId(),   message.clientOrderId(),
+                   message.symbolId(),   side == sbe::Side::Buy ? Side::buy : Side::sell,
                    message.priceTicks(), message.quantity()};
     validate(order);
     return order;
 }
 void require_correlation(std::uint64_t actual, std::uint64_t expected) {
     if (actual != expected) {
-        throw std::invalid_argument("correlation mismatch: stale, duplicate, or unexpected response");
+        throw std::invalid_argument(
+            "correlation mismatch: stale, duplicate, or unexpected response");
     }
 }
 } // namespace hft

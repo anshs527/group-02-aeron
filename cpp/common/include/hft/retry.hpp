@@ -22,12 +22,9 @@ inline OfferResult classify_offer(std::int64_t status) {
     case -2: // BACK_PRESSURED: retry same message
     case -3: // ADMIN_ACTION: e.g. term rotation
         return OfferResult::retry;
-    case -4:
-        throw std::runtime_error("publication closed");
-    case -5:
-        throw std::runtime_error("publication maximum position exceeded");
-    default:
-        throw std::runtime_error("unrecoverable publication status " + std::to_string(status));
+    case -4: throw std::runtime_error("publication closed");
+    case -5: throw std::runtime_error("publication maximum position exceeded");
+    default: throw std::runtime_error("unrecoverable publication status " + std::to_string(status));
     }
 }
 

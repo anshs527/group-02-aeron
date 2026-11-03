@@ -39,7 +39,8 @@ int main(int argc, char** argv) {
                   << stats.mean() << " max_ns=" << stats.max() << '\n';
         return 0;
     } catch (const std::exception& error) {
-        std::cerr << "PING FAILED: " << error.what() << "\nUsage: aeron_ping " << hft::usage << '\n';
+        std::cerr << "PING FAILED: " << error.what() << "\nUsage: aeron_ping " << hft::usage
+                  << '\n';
         return 1;
     }
 }
