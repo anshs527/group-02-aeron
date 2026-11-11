@@ -1,0 +1,7 @@
+build-essential
+git
+ninja-build
+openjdk-17-jre-headless
+clang-format-18
+curl
+ca-certificates

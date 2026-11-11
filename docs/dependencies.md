@@ -1,4 +1,94 @@
-# Dependency lock and build sources
+# Dependencies and platform setup
+
+## Required toolchain
+
+- GCC 13+ or Clang 18+ with a C++20 standard library, C compiler, and pthreads.
+- CMake **3.30+** (Aeron 1.48.0 requires this); the optional local bootstrap
+  pins **3.31.6**.
+- Ninja and Git.
+- Java **17+** runtime for the SBE generator, not the native driver. Ubuntu
+  setup selects OpenJDK 17; a JDK is not required.
+- clang-format **18** for formatting checks.
+- Bash and GNU coreutils, including `timeout`, `mktemp`, and `realpath`.
+- curl, CA certificates, and internet access to GitHub and Maven Central on
+  first configuration, or the dependency cache described under [offline builds](#offline-builds).
+
+No Python, Prometheus, Grafana, Terraform, VirtualBox, Java Media Driver, or
+system-installed Aeron is required to build/run these tools. Native driver
+optional BSD/UUID libraries are discovered by upstream; their fallbacks suffice.
+
+## Platform setup
+
+### Linux
+
+The reference environment is **Ubuntu 24.04 LTS, Linux x86-64**. Other
+distributions must supply equivalent tools and are not validated. Linux arm64
+is an intended later validation target, not a verified platform.
+
+From the repository root, install the shared local/CI package list,
+[requirements-ubuntu.txt](../requirements-ubuntu.txt):
+
+```bash
+sudo apt-get update
+xargs -r -a requirements-ubuntu.txt sudo apt-get install -y --no-install-recommends
+```
+
+This is an apt package list, not a pip requirements file. These commands change
+system packages and may prompt for your sudo password. The list selects Java 17
+and clang-format 18 explicitly; Ubuntu supplies package patch updates.
+
+### Windows (WSL2)
+
+Use WSL2 with Ubuntu 24.04, then follow the Linux instructions inside WSL.
+Keep the checkout in the Linux filesystem (for example, `~/src/`), not `/mnt/c/`.
+Run configuration, builds, and tests in the WSL shell. Native Windows builds
+are not supported by this foundation.
+
+### macOS (Linux VM)
+
+Use an Ubuntu 24.04 Linux VM and follow the Linux instructions in the guest.
+Keep the checkout and run all build/test commands inside that VM. Native macOS
+builds are not supported by this foundation; installing tools with Homebrew
+alone does not establish compatibility.
+
+Apple Silicon typically uses arm64 guests. Linux arm64 remains unverified;
+Ubuntu x86-64 CI results do not validate arm64. Choose VM software compatible
+with the host OS, CPU architecture, and hypervisor setup; VirtualBox is not
+required.
+
+### CMake setup inside Linux
+
+Ubuntu 24.04's default CMake is below the project's minimum. If your installed
+version is below 3.30, use the optional repository-local binary bootstrap
+(no sudo), then set its path:
+
+```bash
+bash scripts/local_cmake.sh
+export PATH="$PWD/.tools/cmake-3.31.6-linux-$(uname -m)/bin:$PATH"
+```
+
+## Verify the setup
+
+Inside Linux, from the repository root:
+
+```bash
+ninja --version
+java -version
+cmake --version
+bash scripts/format.sh --check
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug --output-on-failure --no-tests=error
+```
+
+Repeat configure/build/test with `release` and `asan` for the full CI matrix.
+CTest includes unit and native-driver IPC integration tests. CMake fetches the
+pinned dependencies below and generates codecs in the build tree automatically;
+do not install these libraries globally or hand-edit generated codecs. See the
+[README](../README.md#clean-checkout-build-and-tests) for additional build
+commands and the [verification record](verification.md) for results and limits.
+
+## Dependency pins and build sources
 
 Inspected upstream build documentation and the pinned source files on 2026-10-27.
 These are deliberate reproducible baseline versions, not claims to be the newest

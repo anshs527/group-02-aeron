@@ -19,7 +19,7 @@ jobs:
       - name: Install explicit Linux prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential git ninja-build openjdk-17-jre-headless clang-format-18 curl ca-certificates
+          xargs -r -a requirements-ubuntu.txt sudo apt-get install -y --no-install-recommends
           bash scripts/local_cmake.sh
           echo "$GITHUB_WORKSPACE/.tools/cmake-3.31.6-linux-x86_64/bin" >> "$GITHUB_PATH"
       - name: Check handwritten formatting
