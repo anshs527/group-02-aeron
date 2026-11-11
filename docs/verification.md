@@ -115,3 +115,67 @@ all tests passed without installing libuuid development headers. No dependency
 pins changed. No commit, push, or remote CI execution was performed in this
 verification. Ubuntu 24.04, other architectures, and performance remain outside
 these local results.
+
+## Teammate reproduction audit — 2026-11-11
+
+Started with a clean `git status --short` at `5e3acc1`. Read the contributor
+instructions, README, roadmap, CMake files, CI workflow, IPC harness, transport,
+tools, and unit/fault-peer tests before changes. Same Ubuntu 26.04 toolchain as
+above. Changes are documentation only: explain sandbox socket denial, correct
+the roadmap's stale local blocker, and remove the stale no-initial-commit claim.
+
+Commands and results in this audit:
+
+| Exact command | Result |
+| --- | --- |
+| `cmake --preset debug` | PASS; optional upstream `uuid_generate` warning |
+| `cmake --build --preset debug` | PASS using existing build tree |
+| `ctest --preset debug -L unit` | PASS, 1/1 CTest entry (11 GoogleTest cases) |
+| `ctest --preset debug -L integration` | Sandbox: 1/7 passed; six driver cases failed at `aeron_socket` with `Operation not permitted`. Approved outside-sandbox rerun: 7/7 passed in 9.13 s |
+| `bash scripts/ipc_smoke.sh build/debug` | PASS outside sandbox; ping count=1000, warmup=100, pong count=1100 |
+| `bash scripts/format.sh --check` | PASS |
+| `bash -n scripts/ipc_smoke.sh` | PASS |
+| `cmake --build build/debug --target sbe_codecs` | PASS, already up to date; fresh generation checked below |
+| `git diff --check` | PASS |
+
+The audit-local ad hoc cleanup checker, run with
+`python3 /tmp/hft-cleanup-check.py`, passed the normal-exit and SIGTERM cleanup
+checks outside the sandbox. It launches `bash -x scripts/ipc_smoke.sh build/debug`
+with `happy`, then `no-response` interrupted with SIGTERM once ping starts.
+It checks exits 0 and 143 respectively, removal of each traced runtime directory,
+and disappearance of the harness's recorded job PIDs. An unrelated `sleep`
+process and temporary directory/file survive both runs; the checker cleans up
+its own sentinels. The checker was local to this audit in `/tmp` and is not part
+of the repository test suite.
+Source review confirms cleanup selects this shell's jobs and its exact mktemp
+directory; GNU timeout wrappers bound their children and forward termination.
+
+Also built from a new build directory using the documented offline overrides:
+
+```bash
+git -C build/debug/_deps/aeron_dep-src rev-parse HEAD
+git -C build/debug/_deps/googletest-src rev-parse HEAD
+cmake -S . -B build/reproduce -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DFETCHCONTENT_SOURCE_DIR_AERON_DEP="$PWD/build/debug/_deps/aeron_dep-src" -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST="$PWD/build/debug/_deps/googletest-src" -DHFT_SBE_JAR="$PWD/build/debug/_deps/sbe-all-1.35.0.jar"
+cmake --build build/reproduce -j 4
+ctest --test-dir build/reproduce --output-on-failure --no-tests=error
+```
+
+Both source HEADs matched the documented pins. Configure and all 207 build
+steps passed, including fresh SBE generation into `build/reproduce/generated`.
+The approved outside-sandbox test run passed 8/8 entries in 9.29 s. Dependency
+downloads from an empty cache were not tested. Logs remain under each build's
+`logs/` and `Testing/Temporary/` directories.
+
+The real fault peer verified rejection of wrong correlation IDs, wrong templates,
+and truncated replies. Missing-driver, missing-peer, and no-response cases passed
+in approximately 1.05, 1.42, and 3.42 s respectively; the harness requires ping
+exit 1 and the expected diagnostic, rejecting watchdog kills as successes.
+Publication code was unchanged: temporary statuses retry the same frame until
+the deadline, fatal statuses fail immediately, and ping shares one deadline
+between send and response. Existing unit tests exercised retries and persistent
+backpressure timeout; real saturated-publication testing was not performed.
+
+No packages installed, dependency pins changed, commits, pushes, or provisioning.
+Release/ASan were not rerun for these documentation-only changes. Ubuntu 24.04
+and remote CI remain unverified by this audit. Socket-restricted sandboxes must
+permit the native driver's startup probe even for IPC-only tests.

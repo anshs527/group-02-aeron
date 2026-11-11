@@ -133,6 +133,10 @@ documents the harness's driver environment.
 - Permission/shared-memory errors: choose a directory writable by all intended
   processes under the same user. The harness uses `/tmp` rather than depending
   on container `/dev/shm` capacity. Never use a broadly shared default directory.
+- `aeron_socket` / `Operation not permitted` during driver initialization: even
+  IPC-only runs probe UDP socket buffer sizes. Run the tests in an environment
+  that permits socket creation (or request sandbox approval); changing the Aeron
+  directory or installing packages does not resolve a sandbox socket denial.
 - Wrong template/correlation/length: this is a protocol failure, not a successful
   sample. Use a dedicated pair and investigate the sender.
 - Slow or noisy RTT: expected with yielding, shared driver threads, instrumentation,
@@ -148,4 +152,3 @@ record dependency/protocol decisions. Format handwritten changes with
 `bash scripts/format.sh --fix`. Keep matching logic transport-independent and
 use integer ticks/quantities. Do not check in credentials, build trees, generated
 code, or large measurement outputs. Select a license together before publishing.
-This local repository has no remote and no initial commit.

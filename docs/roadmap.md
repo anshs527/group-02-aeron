@@ -1,8 +1,9 @@
 # Ordered implementation roadmap
 
-Only task 1's source implementation is present. Task 1 verification remains
-blocked on the authoring environment (verification.md). The NewOrder example is
-a starting point for task 2, not completion of the trading protocol.
+Only task 1's source implementation is present. Local Ubuntu 26.04 verification
+passed; task 1 still requires Ubuntu 24.04 validation (verification.md). The
+NewOrder example is a starting point for task 2, not completion of the trading
+protocol.
 
 1. **Build and Aeron smoke test.** Complete the current verification on Ubuntu
    24.04. Acceptance: clean Debug/Release/ASan builds generate real SBE codecs;
