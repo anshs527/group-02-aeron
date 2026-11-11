@@ -66,8 +66,122 @@ clang-format-18 check. Run `bash scripts/format.sh --fix` and review any changes
 the pending formatting check finds differences. The added GitHub Actions workflow
 has not been executed remotely, consistent with the local-only instruction.
 
+<<<<<<< Updated upstream
 Until these run, buildability, generated-code compatibility and actual native
 IPC behavior are **not empirically verified**. Platform validation on Ubuntu
 24.04 remains required because the available host is Ubuntu 26.04. Any later
 verification should append concrete commands/results and remove this blocker
 notice only after the corresponding checks actually pass.
+=======
+These local checks subsequently passed in the November 11 verification below.
+Platform validation on Ubuntu 24.04 remains required because the available
+host is Ubuntu 26.04.
+
+## CI formatting fix — 2026-11-11
+
+The supplied October 29 Actions log stopped at `scripts/format.sh --check`
+with clang-format violations (exit 123), before configuration, compilation,
+codec generation, or tests. Applied clang-format 18 to the eight affected
+handwritten C++ files; no behavior or generated codecs changed.
+
+- PASS: `uv tool run --from clang-format==18.1.8 bash -c 'CLANG_FORMAT=clang-format bash scripts/format.sh --fix && CLANG_FORMAT=clang-format bash scripts/format.sh --check'`.
+  The formatter ran from uv's isolated tool cache; no system packages changed.
+- PASS: `git diff --check`.
+- BLOCKED: `cmake --preset debug` because Ninja is unavailable.
+- BLOCKED: `cmake -S . -B build/prerequisite-check -G 'Unix Makefiles'`
+  because the Java 17+ runtime is unavailable.
+- Builds, SBE generation, unit tests, and IPC tests were not run. The full CI
+  matrix still needs to run after these changes are pushed by the contributor.
+
+## Build and integration verification — 2026-11-11
+
+After the contributor installed prerequisites, the host provided GCC 15.2.0,
+CMake 4.2.3, Ninja 1.13.2, Java 17.0.21, and clang-format 18.1.8 on Ubuntu 26.04.
+
+Fixed the AtomicBuffer constructor argument to use `bytes.size()` directly,
+matching Aeron 1.48.0's `std::size_t` parameter. Explicitly discarded results in
+two exception tests of `[[nodiscard]]` statistics accessors. Updated the IPC
+failure check to include multiline Aeron exception diagnostics, excluding usage
+text, while retaining the required exit code and `PING FAILED:` prefix.
+
+Executed checks after fixes:
+
+- PASS: `bash scripts/format.sh --check`, `bash -n scripts/ipc_smoke.sh`, and
+  `git diff --check`.
+- PASS: `cmake --preset debug` and `cmake --preset release`.
+  ASan used the contributor's successfully configured build tree.
+- PASS: `cmake --build --preset <preset>` for debug, release, and asan.
+  Release generated SBE codecs from the schema in its new build tree.
+- PASS: `ctest --preset <preset> --output-on-failure --no-tests=error` for all
+  three presets: 8/8 CTest entries each (11 GoogleTest cases in the unit entry
+  plus seven real native-driver IPC scenarios).
+- No ASAN_OPTIONS or UBSAN_OPTIONS overrides were set for these runs.
+
+The optional upstream `uuid_generate` discovery warning remained; builds and
+all tests passed without installing libuuid development headers. No dependency
+pins changed. No commit, push, or remote CI execution was performed in this
+verification. Ubuntu 24.04, other architectures, and performance remain outside
+these local results.
+
+## Teammate reproduction audit — 2026-11-11
+
+Started with a clean `git status --short` at `5e3acc1`. Read the contributor
+instructions, README, roadmap, CMake files, CI workflow, IPC harness, transport,
+tools, and unit/fault-peer tests before changes. Same Ubuntu 26.04 toolchain as
+above. Changes are documentation only: explain sandbox socket denial, correct
+the roadmap's stale local blocker, and remove the stale no-initial-commit claim.
+
+Commands and results in this audit:
+
+| Exact command | Result |
+| --- | --- |
+| `cmake --preset debug` | PASS; optional upstream `uuid_generate` warning |
+| `cmake --build --preset debug` | PASS using existing build tree |
+| `ctest --preset debug -L unit` | PASS, 1/1 CTest entry (11 GoogleTest cases) |
+| `ctest --preset debug -L integration` | Sandbox: 1/7 passed; six driver cases failed at `aeron_socket` with `Operation not permitted`. Approved outside-sandbox rerun: 7/7 passed in 9.13 s |
+| `bash scripts/ipc_smoke.sh build/debug` | PASS outside sandbox; ping count=1000, warmup=100, pong count=1100 |
+| `bash scripts/format.sh --check` | PASS |
+| `bash -n scripts/ipc_smoke.sh` | PASS |
+| `cmake --build build/debug --target sbe_codecs` | PASS, already up to date; fresh generation checked below |
+| `python3 /tmp/hft-cleanup-check.py` | PASS outside sandbox; ad hoc normal-exit and SIGTERM cleanup checks |
+| `git diff --check` | PASS |
+
+The ad hoc cleanup checker launches `bash -x scripts/ipc_smoke.sh build/debug`
+with `happy`, then `no-response` interrupted with SIGTERM once ping starts.
+It checks exits 0 and 143 respectively, removal of each traced runtime directory,
+and disappearance of the harness's recorded job PIDs. An unrelated `sleep`
+process and temporary directory/file survive both runs; the checker cleans up
+its own sentinels. This script lives in `/tmp`, not the repository test suite.
+Source review confirms cleanup selects this shell's jobs and its exact mktemp
+directory; GNU timeout wrappers bound their children and forward termination.
+
+Also built from a new build directory using the documented offline overrides:
+
+```bash
+git -C build/debug/_deps/aeron_dep-src rev-parse HEAD
+git -C build/debug/_deps/googletest-src rev-parse HEAD
+cmake -S . -B build/reproduce -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DFETCHCONTENT_SOURCE_DIR_AERON_DEP="$PWD/build/debug/_deps/aeron_dep-src" -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST="$PWD/build/debug/_deps/googletest-src" -DHFT_SBE_JAR="$PWD/build/debug/_deps/sbe-all-1.35.0.jar"
+cmake --build build/reproduce -j 4
+ctest --test-dir build/reproduce --output-on-failure --no-tests=error
+```
+
+Both source HEADs matched the documented pins. Configure and all 207 build
+steps passed, including fresh SBE generation into `build/reproduce/generated`.
+The approved outside-sandbox test run passed 8/8 entries in 9.29 s. Dependency
+downloads from an empty cache were not tested. Logs remain under each build's
+`logs/` and `Testing/Temporary/` directories.
+
+The real fault peer verified rejection of wrong correlation IDs, wrong templates,
+and truncated replies. Missing-driver, missing-peer, and no-response cases passed
+in approximately 1.05, 1.42, and 3.42 s respectively; the harness requires ping
+exit 1 and the expected diagnostic, rejecting watchdog kills as successes.
+Publication code was unchanged: temporary statuses retry the same frame until
+the deadline, fatal statuses fail immediately, and ping shares one deadline
+between send and response. Existing unit tests exercised retries and persistent
+backpressure timeout; real saturated-publication testing was not performed.
+
+No packages installed, dependency pins changed, commits, pushes, or provisioning.
+Release/ASan were not rerun for these documentation-only changes. Ubuntu 24.04
+and remote CI remain unverified by this audit. Socket-restricted sandboxes must
+permit the native driver's startup probe even for IPC-only tests.
+>>>>>>> Stashed changes
