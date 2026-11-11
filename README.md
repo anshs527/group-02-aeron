@@ -22,49 +22,14 @@ No project license has been selected; that is a team decision.
 
 ## Prerequisites
 
-Start with [requirements.txt](requirements.txt) for the general toolchain list
-and Linux, Windows/WSL2, and macOS/Linux-VM setup instructions. It is a
-human-readable manifest, not a file for `pip install -r`. The installable Ubuntu
-package list remains [requirements-ubuntu.txt](requirements-ubuntu.txt).
+See the [dependency guide](docs/dependencies.md) for required tools, Ubuntu
+installation commands, CMake setup, and Windows/WSL2 and macOS/Linux-VM
+instructions. The reference environment is **Ubuntu 24.04 LTS, Linux x86-64**;
+native Windows/macOS builds and Linux arm64 remain unsupported or unverified
+as detailed in the guide.
 
-Reference environment: **Ubuntu 24.04 LTS, Linux x86-64**. Linux arm64 is an
-intended later validation target, not a verified platform. Windows teammates
-should use WSL2 and keep the checkout in its Linux filesystem. Native Windows
-and macOS builds are not supported by this foundation. VirtualBox support must
-be checked for the particular host OS, CPU architecture, and hypervisor setup;
-it is not required here.
-
-- GCC 13+ or Clang 18+ with a C++20 standard library, C compiler, and pthreads.
-- CMake **3.30+** (Aeron 1.48.0 requires this); local bootstrap pins **3.31.6**.
-- Ninja, Git, and Java **17+** runtime for the **SBE generator**, not the driver.
-- Bash, GNU coreutils (`timeout`, `mktemp`, `realpath`), curl, CA certificates.
-- clang-format **18** for formatting checks.
-- Internet access on first configuration to GitHub and Maven Central, or a
-  pre-populated dependency cache as described in [dependencies](docs/dependencies.md).
-
-No Python, Prometheus, Grafana, Terraform, VirtualBox, Java Media Driver, or
-system-installed Aeron is required to build/run these tools. Native driver
-optional BSD/UUID libraries are discovered by upstream; their fallbacks suffice.
-
-On Ubuntu, run these commands from the repository root to install the packages
-listed in `requirements-ubuntu.txt` (also used by CI). This is an apt package
-list, not a Python/pip requirements file. These commands change system packages
-and may prompt for your sudo password:
-
-```bash
-sudo apt-get update
-xargs -r -a requirements-ubuntu.txt sudo apt-get install -y --no-install-recommends
-ninja --version
-java -version
-```
-
-Ubuntu 24.04's default CMake is too old. If your CMake is below 3.30, use the
-optional, repository-local binary bootstrap (no sudo), then set its path:
-
-```bash
-bash scripts/local_cmake.sh
-export PATH="$PWD/.tools/cmake-3.31.6-linux-$(uname -m)/bin:$PATH"
-```
+The installable Ubuntu package list is
+[requirements-ubuntu.txt](requirements-ubuntu.txt), shared with CI.
 
 ## Clean-checkout build and tests
 
@@ -153,7 +118,7 @@ documents the harness's driver environment.
 
 ## Troubleshooting
 
-- Missing Ninja/Java/formatter: run the prerequisite install commands above.
+- Missing Ninja/Java/formatter: follow the [dependency guide](docs/dependencies.md#platform-setup).
   `JAVA_HOME` may be set to a Java 17+ installation; confirm `java -version`.
 - CMake too old: use `scripts/local_cmake.sh` or an existing CMake >=3.30.
 - Fetch failures: check DNS/TLS/proxy access to GitHub and Maven Central. Do not
