@@ -1,8 +1,8 @@
 # Verification record
 
-Authoring session: 2026-10-27/28. This record distinguishes executed checks from
-checks that require missing prerequisites. It is not a successful integration
-or performance report.
+Initial authoring session: 2026-10-27/28. Historical blockers below are retained;
+the November 11 build verification at the end supersedes the local prerequisite
+blockers. This is a correctness record, not a performance report.
 
 ## Environment inspected before file changes
 
@@ -66,13 +66,6 @@ clang-format-18 check. Run `bash scripts/format.sh --fix` and review any changes
 the pending formatting check finds differences. The added GitHub Actions workflow
 has not been executed remotely, consistent with the local-only instruction.
 
-<<<<<<< Updated upstream
-Until these run, buildability, generated-code compatibility and actual native
-IPC behavior are **not empirically verified**. Platform validation on Ubuntu
-24.04 remains required because the available host is Ubuntu 26.04. Any later
-verification should append concrete commands/results and remove this blocker
-notice only after the corresponding checks actually pass.
-=======
 These local checks subsequently passed in the November 11 verification below.
 Platform validation on Ubuntu 24.04 remains required because the available
 host is Ubuntu 26.04.
@@ -184,4 +177,3 @@ No packages installed, dependency pins changed, commits, pushes, or provisioning
 Release/ASan were not rerun for these documentation-only changes. Ubuntu 24.04
 and remote CI remain unverified by this audit. Socket-restricted sandboxes must
 permit the native driver's startup probe even for IPC-only tests.
->>>>>>> Stashed changes
