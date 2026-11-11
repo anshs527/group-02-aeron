@@ -143,15 +143,17 @@ Commands and results in this audit:
 | `bash scripts/format.sh --check` | PASS |
 | `bash -n scripts/ipc_smoke.sh` | PASS |
 | `cmake --build build/debug --target sbe_codecs` | PASS, already up to date; fresh generation checked below |
-| `python3 /tmp/hft-cleanup-check.py` | PASS outside sandbox; ad hoc normal-exit and SIGTERM cleanup checks |
 | `git diff --check` | PASS |
 
-The ad hoc cleanup checker launches `bash -x scripts/ipc_smoke.sh build/debug`
+The audit-local ad hoc cleanup checker, run with
+`python3 /tmp/hft-cleanup-check.py`, passed the normal-exit and SIGTERM cleanup
+checks outside the sandbox. It launches `bash -x scripts/ipc_smoke.sh build/debug`
 with `happy`, then `no-response` interrupted with SIGTERM once ping starts.
 It checks exits 0 and 143 respectively, removal of each traced runtime directory,
 and disappearance of the harness's recorded job PIDs. An unrelated `sleep`
 process and temporary directory/file survive both runs; the checker cleans up
-its own sentinels. This script lives in `/tmp`, not the repository test suite.
+its own sentinels. The checker was local to this audit in `/tmp` and is not part
+of the repository test suite.
 Source review confirms cleanup selects this shell's jobs and its exact mktemp
 directory; GNU timeout wrappers bound their children and forward termination.
 
