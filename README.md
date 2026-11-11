@@ -1,5 +1,7 @@
 # hft-infra-optimizer
 
+Developed by: Ansh Shah, Bhanu Kunam, Keshav Varma, William Hubbe
+
 UIUC IE421: **Autonomous Low-Latency Trading Infrastructure Optimizer**.
 Our four-person team studies trading infrastructure performance, not predictive
 trading strategies. The eventual system will measure a simplified electronic
