@@ -21,10 +21,10 @@ Endpoint::Endpoint(const Options& options, bool ping) {
         }
     });
     client_ = aeron::Aeron::connect(context);
-    const auto pub_id = client_->addPublication(
-        "aeron:ipc", ping ? options.request_stream : options.response_stream);
-    const auto sub_id = client_->addSubscription(
-        "aeron:ipc", ping ? options.response_stream : options.request_stream);
+    const auto pub_id = client_->addPublication("aeron:ipc", ping ? options.request_stream
+                                                                  : options.response_stream);
+    const auto sub_id = client_->addSubscription("aeron:ipc", ping ? options.response_stream
+                                                                   : options.request_stream);
     while (Clock::now() < deadline) {
         check();
         if (!publication_) {
@@ -57,7 +57,7 @@ void Endpoint::send(std::span<char> bytes, Deadline deadline) {
         throw std::invalid_argument("tool publication length outside supported frame size");
     }
     aeron::concurrent::AtomicBuffer buffer(reinterpret_cast<std::uint8_t*>(bytes.data()),
-                                           static_cast<aeron::util::index_t>(bytes.size()));
+                                           bytes.size());
     offer_until(
         [&] {
             check();

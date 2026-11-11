@@ -97,7 +97,11 @@ else
     wrong-correlation) reason='correlation mismatch' ;;
     wrong-template) reason='invalid SBE header' ;;
   esac
-  grep '^PING FAILED:' "$logs/ping.log" | grep -Eq "$reason"
+  grep -q '^PING FAILED:' "$logs/ping.log"
+  # Aeron exceptions can put the driver diagnostic on a continuation line.
+  # Exclude usage text so its --aeron-dir option cannot satisfy the check.
+  sed -n '/^PING FAILED:/,/^Usage:/{ /^Usage:/d; p; }' "$logs/ping.log" |
+    grep -Eq "$reason"
   if [[ -n "$peer_pid" ]]; then
     wait "$peer_pid"
     grep -q "^FAULT INJECTED $scenario$" "$logs/peer.log"
