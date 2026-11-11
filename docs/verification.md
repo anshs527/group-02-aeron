@@ -1,8 +1,8 @@
 # Verification record
 
-Authoring session: 2026-10-27/28. This record distinguishes executed checks from
-checks that require missing prerequisites. It is not a successful integration
-or performance report.
+Initial authoring session: 2026-10-27/28. Historical blockers below are retained;
+the November 11 build verification at the end supersedes the local prerequisite
+blockers. This is a correctness record, not a performance report.
 
 ## Environment inspected before file changes
 
@@ -66,11 +66,9 @@ clang-format-18 check. Run `bash scripts/format.sh --fix` and review any changes
 the pending formatting check finds differences. The added GitHub Actions workflow
 has not been executed remotely, consistent with the local-only instruction.
 
-Until these run, buildability, generated-code compatibility and actual native
-IPC behavior are **not empirically verified**. Platform validation on Ubuntu
-24.04 remains required because the available host is Ubuntu 26.04. Any later
-verification should append concrete commands/results and remove this blocker
-notice only after the corresponding checks actually pass.
+These local checks subsequently passed in the November 11 verification below.
+Platform validation on Ubuntu 24.04 remains required because the available
+host is Ubuntu 26.04.
 
 ## CI formatting fix — 2026-11-11
 
@@ -87,3 +85,33 @@ handwritten C++ files; no behavior or generated codecs changed.
   because the Java 17+ runtime is unavailable.
 - Builds, SBE generation, unit tests, and IPC tests were not run. The full CI
   matrix still needs to run after these changes are pushed by the contributor.
+
+## Build and integration verification — 2026-11-11
+
+After the contributor installed prerequisites, the host provided GCC 15.2.0,
+CMake 4.2.3, Ninja 1.13.2, Java 17.0.21, and clang-format 18.1.8 on Ubuntu 26.04.
+
+Fixed the AtomicBuffer constructor argument to use `bytes.size()` directly,
+matching Aeron 1.48.0's `std::size_t` parameter. Explicitly discarded results in
+two exception tests of `[[nodiscard]]` statistics accessors. Updated the IPC
+failure check to include multiline Aeron exception diagnostics, excluding usage
+text, while retaining the required exit code and `PING FAILED:` prefix.
+
+Executed checks after fixes:
+
+- PASS: `bash scripts/format.sh --check`, `bash -n scripts/ipc_smoke.sh`, and
+  `git diff --check`.
+- PASS: `cmake --preset debug` and `cmake --preset release`.
+  ASan used the contributor's successfully configured build tree.
+- PASS: `cmake --build --preset <preset>` for debug, release, and asan.
+  Release generated SBE codecs from the schema in its new build tree.
+- PASS: `ctest --preset <preset> --output-on-failure --no-tests=error` for all
+  three presets: 8/8 CTest entries each (11 GoogleTest cases in the unit entry
+  plus seven real native-driver IPC scenarios).
+- No ASAN_OPTIONS or UBSAN_OPTIONS overrides were set for these runs.
+
+The optional upstream `uuid_generate` discovery warning remained; builds and
+all tests passed without installing libuuid development headers. No dependency
+pins changed. No commit, push, or remote CI execution was performed in this
+verification. Ubuntu 24.04, other architectures, and performance remain outside
+these local results.

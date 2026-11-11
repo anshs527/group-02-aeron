@@ -9,9 +9,10 @@ changes using reproducible evidence.
 This repository contains the initial foundation: a C++20 shared common library,
 real Aeron IPC ping/pong tools, a versioned SBE schema, generated-code adapters,
 GoogleTest tests, a bounded native-driver integration harness, and Linux CI.
-**Full build/runtime verification is currently blocked on the authoring host**;
-see [the verification record](docs/verification.md) before treating this as a
-validated baseline. No mocked transport stands in for Aeron.
+Debug, Release, and ASan builds and all unit/IPC tests passed locally on Ubuntu
+26.04; Ubuntu 24.04 CI validation remains pending. See
+[the verification record](docs/verification.md) for details and limits.
+No mocked transport stands in for Aeron.
 
 The matching engine, trading client, market-data service, workload generator,
 autonomous controller, monitoring, VM provisioning, and cloud deployment are
