@@ -21,10 +21,10 @@ Endpoint::Endpoint(const Options& options, bool ping) {
         }
     });
     client_ = aeron::Aeron::connect(context);
-    const auto pub_id = client_->addPublication(
-        "aeron:ipc", ping ? options.request_stream : options.response_stream);
-    const auto sub_id = client_->addSubscription(
-        "aeron:ipc", ping ? options.response_stream : options.request_stream);
+    const auto pub_id = client_->addPublication("aeron:ipc", ping ? options.request_stream
+                                                                  : options.response_stream);
+    const auto sub_id = client_->addSubscription("aeron:ipc", ping ? options.response_stream
+                                                                   : options.request_stream);
     while (Clock::now() < deadline) {
         check();
         if (!publication_) {

@@ -16,8 +16,7 @@ struct Options {
     [[nodiscard]] std::uint64_t total() const { return messages + warmup; }
 };
 Options parse_options(int argc, char** argv);
-inline constexpr const char* usage =
-    "--aeron-dir ABSOLUTE_PATH [--messages 1000] [--warmup 100] "
-    "[--startup-timeout-ms 10000] [--response-timeout-ms 2000] "
-    "[--request-stream 1001] [--response-stream 1002]";
+inline constexpr const char* usage = "--aeron-dir ABSOLUTE_PATH [--messages 1000] [--warmup 100] "
+                                     "[--startup-timeout-ms 10000] [--response-timeout-ms 2000] "
+                                     "[--request-stream 1001] [--response-stream 1002]";
 } // namespace hft

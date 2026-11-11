@@ -31,6 +31,17 @@ The local CMake bootstrap checks the matching official release checksum via TLS.
 System compiler, JRE, Ninja and OS package patch levels are not frozen; record
 actual versions with experimental results.
 
+`requirements-ubuntu.txt` is the shared apt package list for local setup and CI
+on Ubuntu 24.04. It selects Java 17 and clang-format 18 explicitly; Ubuntu
+supplies package patch updates. Install it with the README commands, not pip.
+CMake remains a separate optional bootstrap because Ubuntu 24.04's default
+version is below the project's minimum. No library or tool version pins change
+when consolidating this package list.
+
+`requirements.txt` documents the general toolchain requirements and platform
+setup paths. It is not a pip lockfile or a native Windows/macOS support claim;
+those hosts run this foundation in Linux via WSL2 or a VM respectively.
+
 Aeron's C++ wrapper is header-only and links the C client (`aeron_static`), not
 the deprecated standalone C++ implementation. `aeronmd_s` statically links the
 native driver library (system libc/pthread/etc. remain native requirements).

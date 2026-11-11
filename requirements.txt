@@ -1,0 +1,63 @@
+# Build requirements for hft-infra-optimizer
+# This is a human-readable C++ toolchain manifest, NOT a pip requirements file.
+# There is no single package-manager command that installs these on every OS.
+
+Required tools
+--------------
+C and C++ compilers: GCC 13+ or Clang 18+, with C++20 and pthreads
+CMake: 3.30+ (optional repository-local bootstrap pins 3.31.6)
+Ninja
+Git
+Java runtime: 17+ (Ubuntu setup selects OpenJDK 17; no JDK required)
+clang-format: 18
+Bash and GNU coreutils, including timeout, mktemp, and realpath
+curl and CA certificates
+Internet access to GitHub and Maven Central on first configuration
+
+Project libraries and code generator
+------------------------------------
+CMake fetches pinned Aeron, GoogleTest, and SBE releases automatically.
+See docs/dependencies.md for exact pins and offline configuration.
+Do not install these libraries globally. Generated codecs stay in build/.
+
+Platform setup
+--------------
+Linux:
+  Reference environment: Ubuntu 24.04 LTS, x86-64.
+  From the repository root, install the shared local/CI package list:
+    sudo apt-get update
+    xargs -r -a requirements-ubuntu.txt sudo apt-get install -y --no-install-recommends
+  Other distributions must supply equivalent tools and are not validated.
+
+Windows:
+  Use WSL2 with Ubuntu 24.04, then follow the Linux instructions inside WSL.
+  Keep the checkout in the Linux filesystem (for example, ~/src/), not /mnt/c/.
+  Run configuration, builds, and tests in the WSL shell.
+  Native Windows builds are not supported by this foundation.
+
+macOS:
+  Use an Ubuntu 24.04 Linux VM and follow the Linux instructions in the guest.
+  Keep the checkout and run all build/test commands inside that VM.
+  Native macOS builds are not supported by this foundation; installing tools
+  with Homebrew alone does not establish compatibility.
+  Apple Silicon typically uses arm64 guests. Linux arm64 remains unverified;
+  use the Ubuntu x86-64 CI results as the reference, not as arm64 validation.
+
+CMake setup (inside Linux, if the installed version is below 3.30)
+---------------------------------------------------------------
+  bash scripts/local_cmake.sh
+  export PATH="$PWD/.tools/cmake-3.31.6-linux-$(uname -m)/bin:$PATH"
+
+Verification (inside Linux, from the repository root)
+---------------------------------------------------
+  ninja --version
+  java -version
+  cmake --version
+  bash scripts/format.sh --check
+  cmake --preset debug
+  cmake --build --preset debug
+  ctest --preset debug --output-on-failure
+
+Repeat configure/build/test with release and asan for the full CI matrix.
+CTest includes unit and native-driver IPC integration tests.
+See README.md and docs/verification.md for details and verification limits.

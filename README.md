@@ -21,6 +21,11 @@ No project license has been selected; that is a team decision.
 
 ## Prerequisites
 
+Start with [requirements.txt](requirements.txt) for the general toolchain list
+and Linux, Windows/WSL2, and macOS/Linux-VM setup instructions. It is a
+human-readable manifest, not a file for `pip install -r`. The installable Ubuntu
+package list remains [requirements-ubuntu.txt](requirements-ubuntu.txt).
+
 Reference environment: **Ubuntu 24.04 LTS, Linux x86-64**. Linux arm64 is an
 intended later validation target, not a verified platform. Windows teammates
 should use WSL2 and keep the checkout in its Linux filesystem. Native Windows
@@ -40,12 +45,16 @@ No Python, Prometheus, Grafana, Terraform, VirtualBox, Java Media Driver, or
 system-installed Aeron is required to build/run these tools. Native driver
 optional BSD/UUID libraries are discovered by upstream; their fallbacks suffice.
 
-On Ubuntu, these are **manual commands for a teammate to choose to run**; no
-repository script installs system packages:
+On Ubuntu, run these commands from the repository root to install the packages
+listed in `requirements-ubuntu.txt` (also used by CI). This is an apt package
+list, not a Python/pip requirements file. These commands change system packages
+and may prompt for your sudo password:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends build-essential git ninja-build openjdk-17-jre-headless clang-format-18 curl ca-certificates
+xargs -r -a requirements-ubuntu.txt sudo apt-get install -y --no-install-recommends
+ninja --version
+java -version
 ```
 
 Ubuntu 24.04's default CMake is too old. If your CMake is below 3.30, use the
@@ -143,7 +152,7 @@ documents the harness's driver environment.
 
 ## Troubleshooting
 
-- Missing Ninja/Java/formatter: install the explicit prerequisite yourself.
+- Missing Ninja/Java/formatter: run the prerequisite install commands above.
   `JAVA_HOME` may be set to a Java 17+ installation; confirm `java -version`.
 - CMake too old: use `scripts/local_cmake.sh` or an existing CMake >=3.30.
 - Fetch failures: check DNS/TLS/proxy access to GitHub and Maven Central. Do not

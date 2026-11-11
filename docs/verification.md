@@ -71,3 +71,19 @@ IPC behavior are **not empirically verified**. Platform validation on Ubuntu
 24.04 remains required because the available host is Ubuntu 26.04. Any later
 verification should append concrete commands/results and remove this blocker
 notice only after the corresponding checks actually pass.
+
+## CI formatting fix — 2026-11-11
+
+The supplied October 29 Actions log stopped at `scripts/format.sh --check`
+with clang-format violations (exit 123), before configuration, compilation,
+codec generation, or tests. Applied clang-format 18 to the eight affected
+handwritten C++ files; no behavior or generated codecs changed.
+
+- PASS: `uv tool run --from clang-format==18.1.8 bash -c 'CLANG_FORMAT=clang-format bash scripts/format.sh --fix && CLANG_FORMAT=clang-format bash scripts/format.sh --check'`.
+  The formatter ran from uv's isolated tool cache; no system packages changed.
+- PASS: `git diff --check`.
+- BLOCKED: `cmake --preset debug` because Ninja is unavailable.
+- BLOCKED: `cmake -S . -B build/prerequisite-check -G 'Unix Makefiles'`
+  because the Java 17+ runtime is unavailable.
+- Builds, SBE generation, unit tests, and IPC tests were not run. The full CI
+  matrix still needs to run after these changes are pushed by the contributor.
