@@ -22,7 +22,8 @@ TEST(Protocol, PingPongRoundTripsAndGoldenLittleEndianHeader) {
         }
     }
     const auto bytes = hft::encode_echo(hft::EchoKind::ping, 0x0102030405060708ULL);
-    const std::vector<unsigned char> golden{8, 0, 1, 0, 0xa5, 1, 0, 0, 8, 7, 6, 5, 4, 3, 2, 1};
+    // Byte 6 is the schema version, 1 since the order messages were added.
+    const std::vector<unsigned char> golden{8, 0, 1, 0, 0xa5, 1, 1, 0, 8, 7, 6, 5, 4, 3, 2, 1};
     for (std::size_t i = 0; i < bytes.size(); ++i) {
         EXPECT_EQ(static_cast<unsigned char>(bytes[i]), golden[i]);
     }
