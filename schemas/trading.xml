@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
-    package="hft.sbe" id="421" version="0" semanticVersion="0.1.0"
-    description="IE421 foundation; all integers little endian" byteOrder="littleEndian">
+    package="hft.sbe" id="421" version="1" semanticVersion="0.2.0"
+    description="IE421 order protocol; all integers little endian; see docs/protocol.md" byteOrder="littleEndian">
   <types>
     <composite name="messageHeader" description="SBE standard 8-byte message header">
       <type name="blockLength" primitiveType="uint16"/>
@@ -11,11 +11,36 @@
     </composite>
     <type name="Identifier64" primitiveType="uint64" minValue="1" maxValue="18446744073709551614"/>
     <type name="Identifier32" primitiveType="uint32" minValue="1" maxValue="4294967294"/>
+    <type name="OptionalIdentifier32" primitiveType="uint32" presence="optional"
+        minValue="1" maxValue="4294967294" description="Null (2^32-1) means absent"/>
     <type name="PriceTicks" primitiveType="int64" minValue="1" maxValue="9223372036854775807"/>
     <type name="Quantity" primitiveType="uint64" minValue="1" maxValue="18446744073709551614"/>
+    <type name="QuantityOrZero" primitiveType="uint64" minValue="0" maxValue="18446744073709551614"/>
     <enum name="Side" encodingType="uint8">
       <validValue name="Buy">1</validValue>
       <validValue name="Sell">2</validValue>
+    </enum>
+    <enum name="RequestType" encodingType="uint8" sinceVersion="1">
+      <validValue name="NewOrder">1</validValue>
+      <validValue name="CancelOrder">2</validValue>
+    </enum>
+    <enum name="RejectReason" encodingType="uint8" sinceVersion="1">
+      <validValue name="MalformedMessage">1</validValue>
+      <validValue name="UnsupportedVersion">2</validValue>
+      <validValue name="UnknownClient">3</validValue>
+      <validValue name="UnknownSymbol">4</validValue>
+      <validValue name="InvalidSide">5</validValue>
+      <validValue name="InvalidPrice">6</validValue>
+      <validValue name="InvalidQuantity">7</validValue>
+      <validValue name="DuplicateClientOrderId">8</validValue>
+      <validValue name="UnknownOrder">9</validValue>
+      <validValue name="OrderAlreadyDone">10</validValue>
+      <validValue name="Throttled">11</validValue>
+      <validValue name="InternalError">12</validValue>
+    </enum>
+    <enum name="Liquidity" encodingType="uint8" sinceVersion="1">
+      <validValue name="Maker">1</validValue>
+      <validValue name="Taker">2</validValue>
     </enum>
   </types>
   <sbe:message name="Ping" id="1" description="One outstanding request per smoke-test session">
@@ -24,12 +49,54 @@
   <sbe:message name="Pong" id="2" description="Echo the request correlation ID">
     <field name="correlationId" id="1" type="Identifier64"/>
   </sbe:message>
-  <sbe:message name="NewOrder" id="3" description="Protocol example, not yet routed to an exchange">
+  <sbe:message name="NewOrder" id="3" description="Client command: submit a limit order">
     <field name="clientId" id="1" type="Identifier32"/>
     <field name="clientOrderId" id="2" type="Identifier64"/>
     <field name="symbolId" id="3" type="Identifier32"/>
     <field name="side" id="4" type="Side"/>
     <field name="priceTicks" id="5" type="PriceTicks"/>
     <field name="quantity" id="6" type="Quantity"/>
+  </sbe:message>
+  <sbe:message name="CancelOrder" id="4" description="Client command: cancel open quantity of an own live order (since version 1)">
+    <field name="clientId" id="1" type="Identifier32"/>
+    <field name="clientOrderId" id="2" type="Identifier64"/>
+    <field name="origClientOrderId" id="3" type="Identifier64"/>
+    <field name="symbolId" id="4" type="Identifier32"/>
+  </sbe:message>
+  <sbe:message name="OrderAccepted" id="5" description="Engine accepted a NewOrder and assigned orderId (since version 1)">
+    <field name="clientId" id="1" type="Identifier32"/>
+    <field name="clientOrderId" id="2" type="Identifier64"/>
+    <field name="orderId" id="3" type="Identifier64"/>
+    <field name="symbolId" id="4" type="Identifier32"/>
+    <field name="side" id="5" type="Side"/>
+    <field name="priceTicks" id="6" type="PriceTicks"/>
+    <field name="quantity" id="7" type="Quantity"/>
+  </sbe:message>
+  <sbe:message name="OrderRejected" id="6" description="A NewOrder or CancelOrder was refused (since version 1)">
+    <field name="clientId" id="1" type="Identifier32"/>
+    <field name="clientOrderId" id="2" type="Identifier64"/>
+    <field name="symbolId" id="3" type="OptionalIdentifier32"/>
+    <field name="requestType" id="4" type="RequestType"/>
+    <field name="rejectReason" id="5" type="RejectReason"/>
+  </sbe:message>
+  <sbe:message name="OrderCancelled" id="7" description="Open quantity removed; order is terminal (since version 1)">
+    <field name="clientId" id="1" type="Identifier32"/>
+    <field name="cancelClientOrderId" id="2" type="Identifier64"/>
+    <field name="origClientOrderId" id="3" type="Identifier64"/>
+    <field name="orderId" id="4" type="Identifier64"/>
+    <field name="symbolId" id="5" type="Identifier32"/>
+    <field name="cancelledQuantity" id="6" type="Quantity"/>
+  </sbe:message>
+  <sbe:message name="OrderExecuted" id="8" description="One fill of one order; two reports per trade (since version 1)">
+    <field name="clientId" id="1" type="Identifier32"/>
+    <field name="clientOrderId" id="2" type="Identifier64"/>
+    <field name="orderId" id="3" type="Identifier64"/>
+    <field name="symbolId" id="4" type="Identifier32"/>
+    <field name="side" id="5" type="Side"/>
+    <field name="tradeId" id="6" type="Identifier64"/>
+    <field name="fillPriceTicks" id="7" type="PriceTicks"/>
+    <field name="fillQuantity" id="8" type="Quantity"/>
+    <field name="leavesQuantity" id="9" type="QuantityOrZero"/>
+    <field name="liquidity" id="10" type="Liquidity"/>
   </sbe:message>
 </sbe:messageSchema>
