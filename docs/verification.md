@@ -264,3 +264,37 @@ bootstrap. Debug preset only; release and ASan were not rerun on x86-64.
 
 Emulated x86-64 is not native Ubuntu 24.04 hardware, and GitHub Actions CI has
 not run these changes. No commit or push was made.
+
+## PR #14 review changes, issue #4 — 2026-11-13
+
+This entry covers the changes made for the inline review on PR #14. All PR-added comments were
+removed from the handwritten C++ headers, sources and tests. The formatter
+then reflowed two test tables and the golden byte array. The only remaining
+added comment is the `} // namespace` line, which clang-format's LLVM style
+inserts itself. `docs/protocol.md` gained section 5.1, D-26 to D-29 and the
+section 12 merge blockers. No matching rules specification or joint review
+record exists yet, so no wire decision was confirmed. `schemas/trading.xml`,
+`CMakeLists.txt` and the generated codecs did not change, and no test was
+weakened or removed.
+
+Host: macOS (Darwin 25.6.0, arm64). Linux checks ran in `ubuntu:24.04`
+(24.04.5 LTS), native **aarch64**, with packages installed in the container
+only and CMake 3.31.6 from `scripts/local_cmake.sh`. The host checkout was
+mounted read-only.
+
+| Command | Result |
+| --- | --- |
+| `clang-format -i` on the four changed C++ files, then `CLANG_FORMAT=<scratch venv>/clang-format bash scripts/format.sh --check` with clang-format 18.1.8 on macOS | PASS, exit 0 |
+| `git diff --check` | PASS |
+| macOS clang build with project warnings and `-Werror`, then the unit binary | PASS on macOS only, 26/26 |
+| Container `bash scripts/format.sh --check` | PASS, exit 0 |
+| Container `cmake --preset asan`, build, `ctest --preset asan --output-on-failure --no-tests=error` | PASS, 8/8; build log shows `Generating C++ codecs with SBE 1.35.0` |
+| Container debug preset configure, build and ctest | PASS, 8/8 |
+| Container release preset, first run | FAIL at configure, exit 1. The container was removed before its log was saved, so the cause is unknown |
+| Container release preset, fresh container rerun | PASS: configure, build, then 8/8 |
+| Container `cmake --build build/debug --target sbe_codecs` | PASS, up to date; 13 headers in `build/debug/generated/hft_sbe` |
+| Container `build/debug/bin/hft_unit_tests` | PASS, 26/26 |
+| Container `bash scripts/ipc_smoke.sh build/debug` | PASS: `PING OK count=1000 warmup=100`, `PONG OK count=1100`. Functional only |
+
+x86-64 and GitHub Actions CI were not run for these changes. Nothing was
+committed or pushed.

@@ -15,6 +15,11 @@ pointer, or floating-point representation is placed on the wire.
 > [Open questions](#11-open-questions-for-joint-review). The adapter enforces only
 > wire-level rules: ranges, enums, headers and versions. Duplicate handling,
 > correlation and recipients are engine and gateway behavior not implemented yet.
+>
+> **Merge blockers.** The version 1 wire layout has no joint sign-off yet, and
+> three wire decisions are unresolved. See
+> [section 12](#12-merge-blockers-and-review-record). This PR must not merge until
+> section 12 records each decision.
 
 ## 1. Framing, Ping/Pong and NewOrder
 
@@ -56,7 +61,9 @@ negative prices are not silently accepted today.
 
 ## 2. Adapter behavior
 
-Generated setters are not business validation. The adapter enforces ranges and
+Handwritten enums use exactly the numeric codes of the generated enums, and
+`static_assert` checks each one. Generated setters are not business validation.
+The adapter enforces ranges and
 recognized enums on encode and decode, rejects every short/oversized fixed frame,
 and validates all header fields before invoking message decoders. The decoder API
 accepts mutable spans because SBE flyweights require `char*`; decoding does not
@@ -165,7 +172,7 @@ sender's own live orders.
 
 Draft - pending review: the cancel carries its own `clientOrderId` so that its
 response can be correlated independently of the target order. Targeting by
-exchange `orderId` instead is open (Q-9).
+exchange `orderId` instead is open (Q-9) and is merge blocker B-2.
 
 ### 4.3 OrderAccepted (template 5)
 
@@ -193,15 +200,17 @@ result of the rejected command.
 
 | Field | Offset | Type | Units / valid values |
 | --- | --- | --- | --- |
-| clientId | 0 | Identifier32 | client bound to the session that sent the command |
+| clientId | 0 | Identifier32 | clientId bound to the sending session, never the received value |
 | clientOrderId | 4 | Identifier64 | echoed from the rejected command |
 | symbolId | 12 | Identifier32 | echoed as received; null allowed (see below) |
 | requestType | 16 | RequestType | which command was rejected |
 | rejectReason | 17 | RejectReason | section 7 |
 
 Draft - pending review: `symbolId` is optional here and carries null when the
-received value was itself out of range. How a command with an unusable
-`clientOrderId` is reported is open (Q-12).
+received value was itself out of range. `clientId`, `clientOrderId` and
+`requestType` are required, so the gateway can send this message only for a
+correlatable command (section 5.1). Other frames are handled by D-26 and D-27.
+Whether `clientOrderId` should become optional instead is merge blocker B-3.
 
 ### 4.5 OrderCancelled (template 7)
 
@@ -218,8 +227,10 @@ The order is terminal afterwards.
 | cancelledQuantity | 32 | Quantity | open quantity removed, units, ≥ 1 |
 
 Draft - pending review: `cancelledQuantity` is only the quantity still open at
-cancel time; previously filled quantity is not included. Exchange-initiated
-cancels, which would have no `cancelClientOrderId`, are out of scope (Q-13).
+cancel time; previously filled quantity is not included. `cancelClientOrderId`
+is required, so this layout cannot report an exchange-initiated cancel, which
+has no CancelOrder behind it. Whether such cancels are in scope is open (Q-13)
+and is merge blocker B-4.
 
 ### 4.6 OrderExecuted (template 8)
 
@@ -269,12 +280,49 @@ latest fill equals the accepted quantity, and a later cancel removes exactly
   `clientId` and `clientOrderId` (for OrderCancelled, as `cancelClientOrderId`).
   OrderExecuted is not a response to one command; a client correlates it to its
   order by `clientOrderId` or `orderId`.
-- **D-4.** Each command receives exactly one terminal response for the command
-  itself: NewOrder gets OrderAccepted or OrderRejected; CancelOrder gets
-  OrderCancelled or OrderRejected. Fills are additional events.
-- **D-5.** The gateway sets or verifies `clientId` from the session identity and
-  rejects a command whose `clientId` does not match (UnknownClient). A client
+- **D-4.** Each correlatable command (section 5.1) receives exactly one
+  terminal response for the command itself: NewOrder gets OrderAccepted or
+  OrderRejected; CancelOrder gets OrderCancelled or OrderRejected. Fills are
+  additional events. A frame that is not correlatable gets no order message,
+  because OrderRejected cannot encode it; D-26 and D-27 define what happens
+  instead.
+- **D-5.** The gateway verifies the received `clientId` against the clientId
+  bound to the session. A mismatch, zero or null is rejected with UnknownClient,
+  and the reject carries the bound clientId, not the received value. A client
   cannot act on another client's orders.
+
+### 5.1 Commands the gateway cannot answer
+
+**Draft - pending review.** OrderRejected requires a valid `clientId`,
+`clientOrderId` and `requestType`. The gateway can therefore reject a command
+only when it is **correlatable**, meaning all of the following hold:
+
+1. The session is bound to a clientId (Q-11).
+2. The frame has a full 8-byte header with schema ID 421 and template ID 3
+   (NewOrder) or 4 (CancelOrder). The template gives `requestType`.
+3. The frame is at least 20 bytes long, so `clientOrderId` at body offset 4 is
+   present. Both command templates place it there in every accepted version.
+4. `clientOrderId` is in 1..2^64−2.
+
+Any other defect of a correlatable command, such as a bad version, a length
+that disagrees with `blockLength`, a wrong `clientId` field or an out-of-range
+`symbolId`, side, price or quantity, is answered with OrderRejected and the
+reason from section 7.
+
+- **D-26. Unusable command ID on a bound session.** Conditions 2 to 4 fail. The
+  gateway forwards nothing to the engine and sends no order message. It
+  increments a per-session counter of uncorrelatable frames, records the event
+  on the asynchronous diagnostic path, and closes the session. The client sees
+  the closed session and must treat its outstanding commands as having an
+  unknown outcome. The frame is never dropped without that counter and the
+  session close.
+- **D-27. Unbound session.** Condition 1 fails, so no valid `clientId` exists to
+  put in OrderRejected. The gateway forwards nothing to the engine, sends no
+  order message, increments the same counter, and closes the session. Until a
+  logon protocol exists, the binding comes from gateway configuration (Q-11).
+
+D-26 and D-27 fit the current wire layout. The alternative of a reject with a
+null `clientOrderId` would need a wire change and is merge blocker B-3.
 
 ## 6. Event recipients
 
@@ -309,13 +357,13 @@ and self-trade behavior, are open (Q-8, Q-10).
 
 | Code | Name | Applies to | Raised by | Meaning |
 | --- | --- | --- | --- | --- |
-| 1 | MalformedMessage | both | gateway | header, length or encoding invalid but correlation fields readable |
+| 1 | MalformedMessage | both | gateway | header, length or encoding invalid in a correlatable command (section 5.1) |
 | 2 | UnsupportedVersion | both | gateway | schema version outside the accepted range (section 10) |
-| 3 | UnknownClient | both | gateway | clientId missing, null, or not bound to this session |
+| 3 | UnknownClient | both | gateway | received clientId is zero, null, or differs from the clientId bound to the session; the reject carries the bound clientId. An unbound session gets no reject (D-27) |
 | 4 | UnknownSymbol | both | gateway | symbolId null or not in the symbol catalog |
 | 5 | InvalidSide | NewOrder | gateway | side not Buy or Sell |
 | 6 | InvalidPrice | NewOrder | gateway | price null, ≤ 0, above limit, or not a valid tick (Q-2, Q-4) |
-| 7 | InvalidQuantity | NewOrder | gateway | quantity null, zero, above cap, or not a lot multiple (Q-2, Q-3) |
+| 7 | InvalidQuantity | NewOrder | gateway; engine for D-28 | quantity null, zero, above cap, or not a lot multiple (Q-2, Q-3); or resting it would overflow an aggregate (D-28) |
 | 8 | DuplicateClientOrderId | both | engine | clientOrderId already used by this client within the window |
 | 9 | UnknownOrder | CancelOrder | engine | no order with origClientOrderId for this client and symbol |
 | 10 | OrderAlreadyDone | CancelOrder | engine | target order is already fully filled or cancelled |
@@ -344,8 +392,7 @@ and keeps stateless checks out of the matching hot path.
 - `clientOrderId` uniqueness for the client (DuplicateClientOrderId).
 - Cancel target exists, belongs to the client, and is still live (UnknownOrder,
   OrderAlreadyDone).
-- Arithmetic overflow of aggregated book quantities is impossible given the
-  gateway's quantity cap; the engine still asserts it (Q-3).
+- Checked arithmetic for every aggregate quantity (D-28).
 
 - **D-10.** The engine re-checks nothing the gateway owns except as defensive
   assertions, which fail loudly rather than emit a reject. The engine takes
@@ -355,6 +402,22 @@ and keeps stateless checks out of the matching hot path.
   Producing a specific RejectReason requires the gateway to know which check
   failed. That mapping is **not implemented** in Phase 2 and belongs with the
   gateway work; adding it does not change existing Ping/Pong callers.
+- **D-28. Aggregate quantities use checked arithmetic.** A per-order cap does
+  not bound a sum over orders: two resting orders of 2^63 units already
+  overflow uint64. Per-order sums are safe without checks, because the filled
+  quantity never exceeds the accepted quantity, which is at most 2^64−2. Every
+  sum over several orders is computed with checked addition before any state
+  changes. That covers resting quantity at a price level and per side, and any
+  cumulative traded volume the engine keeps. A NewOrder whose resting quantity
+  would overflow an aggregate is rejected with InvalidQuantity and leaves the
+  book unchanged. An overflow in a statistic that no command can reject is a
+  defensive assertion under D-10.
+- **D-29. Replacing checks with a static bound.** Checked addition on a resting
+  aggregate may be dropped only if Q-3 documents and enforces both a maximum
+  order quantity Qmax and a maximum count of live orders Nmax, with
+  Qmax × Nmax ≤ 2^64−2. For example, Qmax = Nmax = 2^32−1 gives
+  2^64 − 2^33 + 1, which fits. Such a bound never covers cumulative traded
+  volume, which grows with order count over time and keeps its checks.
 
 ## 9. Duplicate handling
 
@@ -374,8 +437,9 @@ and keeps stateless checks out of the matching hot path.
   UnknownOrder.
 - **D-17. CancelOrder that reuses a clientOrderId:** rejected with
   DuplicateClientOrderId, because commands share one namespace (D-1).
-- **D-18.** No duplicate is ever dropped silently. Every command gets exactly one
-  response per D-4.
+- **D-18.** No duplicate is ever dropped silently. Every correlatable command
+  gets exactly one response per D-4. A frame that is not correlatable is
+  counted and closes its session under D-26 or D-27.
 
 Transport delivery alone does not provide exactly-once processing; see
 architecture.md. Resubmitting after an ambiguous failure is safe only if the
@@ -394,6 +458,10 @@ schema version 1. Ping and Pong keep the exact-version policy (section 2).
   with `sinceVersion` set to the new version; add a new template; add a new enum
   value. Everything else is incompatible: removing, reordering, retyping or
   resizing a field, changing units or meaning, or narrowing a valid range.
+  A new enum value or template is compatible for the schema only. A sender must
+  not emit it until every receiver of that message accepts it, because D-25 and
+  the adapter reject unknown enum values and templates. Receivers are upgraded
+  first, then senders.
 - **D-22. Newer sender, older receiver:** the receiver uses the header
   `blockLength` to find the end of the body, reads only fields it knows, and
   ignores trailing bytes. A frame whose `blockLength` is shorter than the
@@ -405,7 +473,8 @@ schema version 1. Ping and Pong keep the exact-version policy (section 2).
   below that minimum, or a frame length that disagrees with `blockLength`, are
   rejected (UnsupportedVersion or MalformedMessage) rather than guessed.
 - **D-25.** A receiver that sees an unknown enum value or unknown template
-  rejects the command; it never maps it to a default.
+  rejects the frame; it never maps it to a default. Sending a new enum value
+  or template therefore requires receiver support first, as D-21 says.
 
 Implementation details of D-22 to D-24 in schema version 1:
 
@@ -422,6 +491,12 @@ Implementation details of D-22 to D-24 in schema version 1:
   Unknown trailing bytes are ignored and known fields are decoded normally.
 - No field yet has a `sinceVersion` later than its message, so D-23's absent
   field behavior has no case to exercise until a field is appended.
+
+The tested compatibility direction is the version 1 decoder reading version 0
+NewOrder frames. No version 0 decoder exists in this repository, so a version 0
+receiver reading version 1 frames is not tested. The newer-version cases below
+are hand-built headers that simulate a future sender; no real version 2 schema
+exists.
 
 Tests cover: NewOrder at version 0 accepted; version 0 with a shorter block
 rejected; versions 2 and 65535 with longer blocks and trailing bytes accepted
@@ -449,9 +524,9 @@ added or made optional. Each needs agreement with the matching rules owner.
   (current design) with no further tick check, and must quantity be a lot
   multiple?
 - **Q-3. Quantity cap.** What is the maximum order quantity? The current range
-  reaches 2^64−2, which lets aggregated book depth or cumulative fills overflow
-  uint64. A cap such as 2^32 per order, with a bounded order count, would make
-  overflow impossible by construction.
+  reaches 2^64−2. Until a cap is chosen, D-28 makes aggregates safe with checked
+  arithmetic. A cap removes those checks only together with a live order limit
+  that satisfies D-29.
 - **Q-4. Price bounds.** Is there an upper price limit or band below 2^63−1,
   and are zero or negative prices ever valid?
 - **Q-5. clientOrderId uniqueness window.** Unique for the life of an engine
@@ -463,17 +538,18 @@ added or made optional. Each needs agreement with the matching rules owner.
 - **Q-7. Execution price.** Is the fill price always the resting order's price?
 - **Q-8. Maker/taker report order.** Within one trade, is the maker's report
   emitted before the taker's, or is no order guaranteed?
-- **Q-9. Cancel target key.** Should CancelOrder target by `origClientOrderId`
-  (current draft), by exchange `orderId`, or accept either?
+- **Q-9. Cancel target key. Merge blocker B-2.** Should CancelOrder target by
+  `origClientOrderId` (current draft), by exchange `orderId`, or accept either?
 - **Q-10. Self-trade.** When a client's aggressor would match its own resting
   order, does the trade occur, or is one side cancelled or rejected?
 - **Q-11. Client identity.** How are `clientId` values allocated and bound to
   sessions? Does the gateway overwrite `clientId` or only verify it?
-- **Q-12. Uncorrelatable commands.** When a frame is too damaged to read
-  `clientOrderId`, should the gateway send a reject with a null ID, or count the
-  error and disconnect the session? Either way it must not be lost silently.
-- **Q-13. Exchange-initiated cancels.** Are unsolicited cancels (end of session,
-  self-trade prevention) in scope? If so, `cancelClientOrderId` must be optional.
+- **Q-12. Uncorrelatable commands. Merge blocker B-3.** Section 5.1 drafts
+  count-and-close (D-26, D-27), which fits the current wire. The alternative is
+  a reject with a null `clientOrderId`, which needs that field to be optional.
+- **Q-13. Exchange-initiated cancels. Merge blocker B-4.** Are unsolicited
+  cancels (end of session, self-trade prevention) in scope? If so,
+  `cancelClientOrderId` must be optional.
 - **Q-14. Admission control.** Is Throttled needed in the first release, and
   what policy triggers it?
 - **Q-15. Duplicate NewOrder: reject or idempotent replay.** Section 9 proposes a
@@ -485,3 +561,29 @@ added or made optional. Each needs agreement with the matching rules owner.
   task 4? Adding them later is compatible under D-21 but changes every event.
 - **Q-17. Partial-fill cancel quantity.** Confirm that OrderCancelled reports
   only the remaining open quantity, as drafted in 4.5.
+
+## 12. Merge blockers and review record
+
+Issue #4 says shared semantics are finalized only after joint review with the
+Matching Rules Specification (issue #5). On 2026-11-13 the following were
+checked for recorded decisions:
+
+- The repository has no matching rules specification. `docs/` and
+  `docs/decisions/` contain no matching rules document.
+- Issue #5 is open and has no comments.
+- Issues #4 and #5 and PR #14 contain no record of a joint review decision.
+
+No decision on the cancel target, uncorrelatable rejects or exchange-initiated
+cancels is confirmed. This PR therefore changes no wire layout for them, and
+each item below blocks the merge until this section records its outcome.
+
+| ID | Decision needed | Current wire in version 1 | Wire change if decided otherwise |
+| --- | --- | --- | --- |
+| B-1 | Joint sign-off on the version 1 layout: templates 4–8, offsets, enum and RejectReason codes | as in sections 3, 4 and 7 | depends on the change |
+| B-2 | Cancel target key (Q-9) | CancelOrder requires `origClientOrderId` | targeting by `orderId` needs a new CancelOrder field; accepting either makes both optional |
+| B-3 | Uncorrelatable rejects (Q-12) | OrderRejected requires `clientId` and `clientOrderId`; section 5.1 drafts count-and-close | a reject with a null ID makes `clientOrderId`, and for unbound sessions `clientId`, optional |
+| B-4 | Exchange-initiated cancels (Q-13) | OrderCancelled requires `cancelClientOrderId` | in scope makes it optional and likely adds a cancel reason field |
+
+Nothing has been deployed, so any of these changes can still be made inside
+version 1 before merge. Record each outcome here with the date and the people
+who agreed, then update `schemas/trading.xml`, the adapters and the tests.

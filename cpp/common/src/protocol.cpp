@@ -34,7 +34,6 @@ static_assert(sbe::CancelOrder::sbeTemplateId() ==
               static_cast<std::uint16_t>(TemplateId::cancel_order));
 static_assert(sbe::OrderExecuted::sbeTemplateId() ==
               static_cast<std::uint16_t>(TemplateId::order_executed));
-// Handwritten enums mirror generated codes exactly, so casts between them are exact.
 static_assert(sbe::Side::Sell == static_cast<std::uint8_t>(Side::sell));
 static_assert(sbe::RequestType::CancelOrder ==
               static_cast<std::uint8_t>(RequestType::cancel_order));
@@ -58,12 +57,10 @@ void valid_id32(std::uint32_t value) {
     }
 }
 void valid_price(std::int64_t ticks) {
-    // Also rejects the int64 minimum, which is the SBE null sentinel.
     if (ticks <= 0) {
         throw std::invalid_argument("invalid price ticks");
     }
 }
-// Codes are contiguous from 1; zero, unknown codes and the 255 null are rejected.
 template <typename Enum> Enum checked_enum(std::uint8_t raw, std::uint8_t max) {
     if (raw == 0 || raw > max) {
         throw std::invalid_argument("invalid enum value");
@@ -128,7 +125,6 @@ void validate(const OrderExecuted& event) {
     checked_enum<Liquidity>(raw(event.liquidity), liquidity_max);
 }
 
-// Ping/Pong: exact current version, template and block length only.
 template <typename Message> void check_header(std::span<char> bytes) {
     // No generated decoder is invoked until the complete fixed frame is present.
     if (bytes.size() != header_size + Message::sbeBlockLength()) {
@@ -142,11 +138,6 @@ template <typename Message> void check_header(std::span<char> bytes) {
         throw std::invalid_argument("invalid SBE header (schema/version/template/block length)");
     }
 }
-// Order messages: the version range policy of protocol.md section 10.
-// Versions up to the current one must carry exactly the known block (no field
-// has been appended since any accepted version). Newer versions may carry a
-// longer block whose unknown trailing bytes are ignored. The frame length must
-// always equal header + blockLength. Returns the wrapped, validated decoder.
 template <typename Message> Message wrap_versioned(std::span<char> bytes, std::uint16_t min) {
     if (bytes.size() < header_size) {
         throw std::invalid_argument("invalid message length");
@@ -357,7 +348,6 @@ TemplateId peek_template(std::span<const char> bytes) {
     if (bytes.size() < header_size) {
         throw std::invalid_argument("invalid message length");
     }
-    // Little-endian uint16 fields at header offsets 2 (templateId) and 4 (schemaId).
     const auto u16 = [&](std::size_t offset) {
         return static_cast<std::uint16_t>(
             static_cast<unsigned>(static_cast<unsigned char>(bytes[offset])) |
