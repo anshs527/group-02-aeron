@@ -298,3 +298,41 @@ mounted read-only.
 
 x86-64 and GitHub Actions CI were not run for these changes. Nothing was
 committed or pushed.
+
+## Single-symbol order book, issue #9 — 2026-11-15
+
+Branch `keshav-issue-9`, stacked on `keshav-issue-4` (PR #14, not merged). Adds
+the `hft_matching` library (`cpp/exchange/`), its tests
+(`tests/order_book_test.cpp`, ctest test `matching`, labels `unit` and
+`matching`) and the CMake wiring. No schema, protocol, transport, tool or
+existing test file changed. The draft defaults are listed in
+`cpp/exchange/README.md` because the matching rules specification (issue #5)
+does not exist yet.
+
+Linux checks ran in `ubuntu:24.04` (24.04.5 LTS), native **aarch64**, with GCC
+13.3.0, clang-format 18.1.3 and CMake 3.31.6 from `scripts/local_cmake.sh`.
+Packages were installed in the container only, and the host checkout was
+mounted read-only.
+
+| Command | Result |
+| --- | --- |
+| `bash scripts/format.sh --check` | PASS, exit 0, no output |
+| `cmake --preset asan && cmake --build --preset asan && ctest --preset asan --output-on-failure` | PASS, 9/9; `matching` took 5.27 s |
+| debug preset configure, build and ctest | PASS, 9/9 |
+| release preset configure, build and ctest | PASS, 9/9 |
+| `ctest --preset debug -L matching` / `-L unit` | PASS, 1/1 and 2/2 |
+| `cmake --build build/debug --target sbe_codecs` | PASS, 13 headers |
+| `bash scripts/ipc_smoke.sh build/debug` | PASS: `PING OK count=1000 warmup=100`, `PONG OK count=1100` |
+| macOS clang build with project warnings, plus an ASan/UBSan build | PASS on macOS only, 17/17 |
+| Four injected bugs in scratch copies: LIFO queueing, taker execution price, no overflow check, cancel by any owner | Each failed the intended tests |
+
+Problems found and fixed during the runs:
+- The first container build failed: GCC's `-Wsign-conversion` rejected a
+  conversion in the test that Apple clang accepted. It was fixed in the test.
+- The first asan run timed out at the 20-second ctest limit. With GCC 13 on
+  arm64, ASan's stack-use-after-return detection made the random test take
+  28 s. That test now runs 2000 commands, not 5000, and compares side totals
+  every 100 commands rather than after each one. Sanitizer settings were not
+  changed.
+
+x86-64 and GitHub Actions CI were not run for these changes.
