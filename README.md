@@ -46,7 +46,9 @@ bash scripts/ipc_smoke.sh build/debug
 bash scripts/format.sh --check
 ```
 
-`ctest --preset debug` runs both labels. Codecs are generated from
+`ctest --preset debug` runs both labels. The `unit` label includes the order
+book tests, which also run alone with `ctest --preset debug -L matching`; see
+`cpp/exchange/README.md`. Codecs are generated from
 `schemas/trading.xml` into `build/debug/generated/hft_sbe/` automatically.
 To explicitly request generation: `cmake --build build/debug --target sbe_codecs`.
 Editing the schema triggers regeneration; never copy or hand-edit generated files.
