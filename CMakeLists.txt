@@ -29,7 +29,11 @@ endfunction()
 
 set(codec_dir "${CMAKE_BINARY_DIR}/generated")
 set(codecs "${codec_dir}/hft_sbe/MessageHeader.h" "${codec_dir}/hft_sbe/Ping.h"
-  "${codec_dir}/hft_sbe/Pong.h" "${codec_dir}/hft_sbe/NewOrder.h" "${codec_dir}/hft_sbe/Side.h")
+  "${codec_dir}/hft_sbe/Pong.h" "${codec_dir}/hft_sbe/NewOrder.h" "${codec_dir}/hft_sbe/Side.h"
+  "${codec_dir}/hft_sbe/CancelOrder.h" "${codec_dir}/hft_sbe/OrderAccepted.h"
+  "${codec_dir}/hft_sbe/OrderRejected.h" "${codec_dir}/hft_sbe/OrderCancelled.h"
+  "${codec_dir}/hft_sbe/OrderExecuted.h" "${codec_dir}/hft_sbe/RequestType.h"
+  "${codec_dir}/hft_sbe/RejectReason.h" "${codec_dir}/hft_sbe/Liquidity.h")
 add_custom_command(OUTPUT ${codecs}
   COMMAND ${CMAKE_COMMAND} -E make_directory "${codec_dir}"
   COMMAND "${Java_JAVA_EXECUTABLE}" --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
@@ -61,7 +65,8 @@ set_target_properties(aeronmd_s PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BIN
 add_custom_target(hft_driver ALL DEPENDS aeronmd_s)
 
 if(BUILD_TESTING)
-  add_executable(hft_unit_tests tests/common_test.cpp tests/protocol_test.cpp)
+  add_executable(hft_unit_tests tests/common_test.cpp tests/protocol_test.cpp
+    tests/order_protocol_test.cpp)
   target_link_libraries(hft_unit_tests PRIVATE hft_common GTest::gtest_main)
   hft_target(hft_unit_tests)
   add_test(NAME unit COMMAND hft_unit_tests)
