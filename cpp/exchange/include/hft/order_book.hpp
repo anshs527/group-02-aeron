@@ -30,6 +30,8 @@ struct RestingOrder {
 class OrderBook {
   public:
     explicit OrderBook(std::uint32_t symbol_id);
+    OrderBook(const OrderBook&) = delete;
+    OrderBook& operator=(const OrderBook&) = delete;
 
     void submit(const NewOrder& order, std::vector<OrderEvent>& events);
     void cancel(const CancelOrder& request, std::vector<OrderEvent>& events);

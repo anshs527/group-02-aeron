@@ -336,3 +336,26 @@ Problems found and fixed during the runs:
   changed.
 
 x86-64 and GitHub Actions CI were not run for these changes.
+
+## PR #15 review change, issue #9 — 2026-11-24
+
+`OrderBook` copy construction and copy assignment are deleted because its
+live-order index stores iterators into its own queues. This also makes it
+non-movable. `tests/order_book_test.cpp` asserts both copy properties at compile
+time. `order_book.cpp` did not change.
+
+Checks ran in `ubuntu:24.04`, native **aarch64**, GCC 13.3.0.
+
+| Command | Result |
+| --- | --- |
+| `bash scripts/format.sh --check` | PASS, exit 0 |
+| debug, asan and release presets: configure, build, `ctest --output-on-failure --no-tests=error` | PASS, 9/9 each; asan `matching` took 5.19 s |
+| `ctest --preset debug -L matching`; `hft_matching_tests` | PASS, 1/1; 17/17 cases |
+| `bash scripts/ipc_smoke.sh build/debug` | PASS |
+| Compile the test against a header copy without the deleted operations | Failed on both new assertions, as intended |
+| Injected bugs, 2000-command test: LIFO queueing, taker price, no overflow check, cancel by any owner | Each failed the tests; unmodified control passed |
+
+The injected-bug and macOS sanitizer results in the 2026-11-15 entry predate the
+reduction from 5000 to 2000 commands. The injected-bug checks are repeated
+above. The macOS sanitizer build was not rerun. x86-64 and CI were not run on
+this change.

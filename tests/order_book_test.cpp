@@ -7,6 +7,7 @@
 #include <map>
 #include <random>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -18,6 +19,9 @@ using hft::RejectReason;
 using hft::RequestType;
 using hft::Side;
 using Events = std::vector<OrderEvent>;
+
+static_assert(!std::is_copy_constructible_v<hft::OrderBook>);
+static_assert(!std::is_copy_assignable_v<hft::OrderBook>);
 
 constexpr std::uint32_t symbol = 7;
 constexpr auto u64_max = std::numeric_limits<std::uint64_t>::max();
